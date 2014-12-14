@@ -8,18 +8,84 @@ output:
 
 ## Loading and preprocessing the data
 
+It is now possible to collect a large amount of data about personal movement using activity monitoring devices such as a [Fitbit](http://www.fitbit.com/), [Nike Fuelband](http://www.nike.com/us/en_us/c/nikeplus-fuelband), or [Jawbone Up](https://jawbone.com/up). These type of devices are part of the "quantified self" movement - a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. But these data remain under-utilized both because the raw data are hard to obtain and there is a lack of statistical methods and software for processing and interpreting the data.
 
+This assignment makes use of data from a personal activity monitoring device. This device collects data at 5 minute intervals through out the day. The data consists of two months of data from an anonymous individual collected during the months of October and November, 2012 and include the number of steps taken in 5 minute intervals each day.
+
+```{r loaddata, warning=FALSE}
+activity <- read.csv("activity.csv")
+activity$date <- as.Date(activity$date, format="%Y-%m-%d")
+
+library(plyr)
+datesummary <- ddply(activity, .(date), summarise, total=sum(steps), 
+                     mean=mean(steps), median=median(steps))
+```
 
 ## What is mean total number of steps taken per day?
 
+Following is a histogram of the total number of steps taken per day.
+```{r, warning=FALSE, results='asis'}
+with (datesummary, plot(date, total, type="h", ylab="Number of Steps"))
+meansteps <- mean(datesummary$total, na.rm=TRUE)
+mediansteps <- median(datesummary$total, na.rm=TRUE)
+```
+
+The mean and median of the number of steps per day are `r round(meansteps, digits=2)` and `r mediansteps`, respectively. The mean and median number of steps for each day are presented in the following table.
+
+```{r, warning=FALSE, results='asis'}
+library(xtable)
+xt <- xtable(datesummary[,c('date','mean','median')])
+print(xt, type="html")
+```
 
 
 ## What is the average daily activity pattern?
 
+The following plot shows the mean number of steps per time interval.
 
+```{r, warning=FALSE, results='asis'}
+timesummary <- ddply(activity, .(interval), summarise, total=sum(steps,na.rm=TRUE), 
+                     mean=mean(steps,na.rm=TRUE), median=median(steps,na.rm=TRUE))
+with (timesummary, plot(interval, mean, type="l", ylab="Average Number of Steps"))
+maxindex <- which.max(timesummary$mean)
+maxsteps <- timesummary$mean[maxindex]
+maxinterval <- timesummary$interval[maxindex]
+```
+
+The maximum mean number of steps `r round(maxsteps,digits=2)` is taken on the interval `r maxinterval`.
 
 ## Imputing missing values
+```{r}
+activity2 <- merge(activity, timesummary[,c("interval","mean")], by="interval", all=TRUE)
+missing <- which(is.na(activity2$steps))
+activity2$steps[missing] = activity2$mean[missing]
+```
 
+The dataset contains `r length(missing)` missing values. These could introduce bias into the calculations. In order to prevent this, the missing values will be replaced by the mean on all other days of the corresponding time interval. This results in the following histogram.
+
+```{r}
+datesummary2 <- ddply(activity2, .(date), summarise, total=sum(steps), 
+                     mean=mean(steps), median=median(steps))
+with (datesummary2, plot(date, total, type="h", ylab="Number of Steps"))
+meansteps2 <- mean(datesummary2$total, na.rm=TRUE)
+mediansteps2 <- median(datesummary2$total, na.rm=TRUE)
+```
+
+The updated mean and median of the number of steps per day are `r round(meansteps2, digits=2)` and `r mediansteps2`, respectively. It can be noted that imputing missing values in this way has very little effect on the mean and median values of total number of steps taken per day.
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r, warning=FALSE, results='asis' }
+activity2$day <- weekdays(activity2$date)
+weekday <- data.frame(day=c("Monday","Tuesday","Wednesday","Thursday",
+                             "Friday","Saturday","Sunday"),
+                       dayindicator=c("weekday","weekday","weekday","weekday",
+                                      "weekday","weekend","weekend"))
+activity3 <- merge(activity2[,c("day","interval","steps")],weekday,by="day",all=TRUE)
+daysummary <- ddply(activity3, .(interval, dayindicator), summarise, 
+                     mean=mean(steps))
+library(lattice)
+xyplot(mean ~ interval | dayindicator, data = daysummary, layout=c(1,2), type='l', 
+       ylab='Number of Steps')
+```
+
