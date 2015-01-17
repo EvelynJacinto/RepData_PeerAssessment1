@@ -10,7 +10,9 @@ table(activity$date)
 library(plyr)
 datesummary <- ddply(activity, .(date), summarise, total=sum(steps), 
                      mean=mean(steps), median=median(steps))
-
+summary(datesummary)
+hist(datesummary$total, breaks=7, xlab="Number of Steps Per Day",
+     main="Histogram of Steps Taken Per Day")
 with (datesummary, plot(date, total, type="h", ylab="Number of Steps"))
 datesummary[,c('date','mean','median')]
 
